@@ -1,51 +1,14 @@
-#!/usr/bin/env python3
-"""
-CV_preprocess - command line tool to pad images to centered square and resize to680x680, saving as JPG.
-
-Usage:
- python CV_preprocess.py --input Input --output Output
-
-The script prefers OpenCV (`cv2`). If not available it falls back to Pillow (`PIL`).
-It also attempts to load a local `cv2` package if placed next to this script in a
-`vendor/` or `opencv/` directory to reduce external dependency needs.
-"""
-
 import os
 import sys
-import argparse
 import glob
+import numpy as np
+import cv2
 
-# Try to pick up a vendored cv2 if present next to the script
-script_dir = os.path.dirname(os.path.abspath(__file__))
-for vendor_name in ("vendor", "opencv"):
-    vendor_dir = os.path.join(script_dir, vendor_name)
-    if os.path.isdir(vendor_dir) and vendor_dir not in sys.path:
-        sys.path.insert(0, vendor_dir)
-
-HAVE_CV2 = False
-try:
-    import cv2
-    HAVE_CV2 = True
-except Exception:
-    HAVE_CV2 = False
-
-# Ensure numpy is available when cv2 is used, otherwise use Pillow fallback
-if HAVE_CV2:
-    try:
-        import numpy as np
-    except Exception:
-        print("Error: numpy is required when using OpenCV (cv2). Install numpy or use Pillow instead.")
-        sys.exit(1)
-else:
-    try:
-        from PIL import Image
-        import numpy as np
-    except Exception:
-        print(
-            "Error: Neither OpenCV (cv2) nor Pillow (PIL) are available.\n"
-            "Place OpenCV next to this script in a 'vendor' or 'opencv' folder or install one of the libraries."
-        )
-        sys.exit(1)
+# Global configuration (replaces CLI arguments)
+side_length = 680
+jpeg_quality = 95
+INPUT_DIR = 'Input'
+OUTPUT_DIR = 'Output'
 
 
 def ensure_dir(path):
@@ -106,58 +69,20 @@ def process_with_cv2(in_path, out_path, size=680, quality=95):
     cv2.imwrite(out_path, resized, [int(cv2.IMWRITE_JPEG_QUALITY), quality])
 
 
-def process_with_pil(in_path, out_path, size=680, quality=95):
-    img = Image.open(in_path)
-    # Convert to RGBA if has alpha so we can composite on white
-    if img.mode in ("RGBA", "LA"):
-        img_rgba = img.convert("RGBA")
-    else:
-        img_rgba = img.convert("RGB")
-
-    w, h = img_rgba.size
-    side = max(w, h)
-
-    # Create white background
-    background = Image.new('RGB', (side, side), (255,255,255))
-    left = (side - w) //2
-    top = (side - h) //2
-
-    if img_rgba.mode == 'RGBA':
-        # paste with alpha as mask
-        background.paste(img_rgba.convert('RGBA'), (left, top), img_rgba.split()[3])
-    else:
-        background.paste(img_rgba.convert('RGB'), (left, top))
-
-    # Resize with high quality
-    resized = background.resize((size, size), Image.LANCZOS)
-    resized.save(out_path, format='JPEG', quality=quality)
-
-
 def process_file(path, out_dir, size=680, quality=95):
     base = os.path.splitext(os.path.basename(path))[0]
     out_path = os.path.join(out_dir, base + '.jpg')
     try:
-        if HAVE_CV2:
-            process_with_cv2(path, out_path, size=size, quality=quality)
-        else:
-            process_with_pil(path, out_path, size=size, quality=quality)
+        process_with_cv2(path, out_path, size=size, quality=quality)
         print(f"Processed: {path} -> {out_path}")
     except Exception as e:
         print(f"Failed processing {path}: {e}")
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description='Pad images to centered square, resize to680x680 and save as JPG.'
-    )
-    parser.add_argument('--input', '-i', default='Input', help='Input directory containing images')
-    parser.add_argument('--output', '-o', default='Output', help='Output directory for processed JPGs')
-    parser.add_argument('--size', '-s', type=int, default=680, help='Output square size in pixels (default680)')
-    parser.add_argument('--quality', '-q', type=int, default=95, help='JPEG quality1-100 (default95)')
-    args = parser.parse_args()
-
-    in_dir = os.path.abspath(args.input)
-    out_dir = os.path.abspath(args.output)
+    # 使用全域設定取代命令列參數
+    in_dir = os.path.abspath(INPUT_DIR)
+    out_dir = os.path.abspath(OUTPUT_DIR)
 
     if not os.path.isdir(in_dir):
         print(f"Input directory does not exist: {in_dir}")
@@ -174,7 +99,7 @@ def main():
         return
 
     for path in files:
-        process_file(path, out_dir, size=args.size, quality=args.quality)
+        process_file(path, out_dir, size=side_length, quality=jpeg_quality)
 
 
 if __name__ == '__main__':
