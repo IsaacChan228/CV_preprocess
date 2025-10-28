@@ -1,2 +1,3 @@
 numpy
-OpenCV-Python
+opencv-python
+Pillow
