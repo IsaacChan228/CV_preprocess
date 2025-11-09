@@ -85,6 +85,7 @@ def main():
             except Exception as e:
                 # log unexpected failure
                 log_fh.write(f"{os.path.basename(img_path)}\tERROR\t{e}\n")
+    print(f"Processing completed. Log written to {log_path}")
 
 
 def read_yolo_label(label_path):
